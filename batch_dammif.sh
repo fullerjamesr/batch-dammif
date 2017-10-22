@@ -8,14 +8,27 @@ if [[ $? -lt 4 ]]; then
     exit 2
 fi
 
+function print_usage {
+	echo
+	echo "Usage:"
+	echo "$0 [options] /path/to/gnomfile.out"
+	echo
+	echo "Options:"
+	echo "-n, --num <integer>               The number of instances of dammif to launch (default: 1)"
+	echo "-i, --in </path/to/file.in>       A file describing a set of options for dammif (default: none)"
+	echo "-m, --mode <slow or interactive>  dammif mode when no .in file is specified (default: slow)"
+	echo "-p, --prefix <string>             The prefix for the dammif output files (default: same as gnom file)"
+	echo "-b, --bin </path/to/dammif>       Where to find the dammif executable (default: none, assume dammif in PATH)"
+}
+
 # The user must specify the input gnom file
 # The user may specify the .in file from which to read parameters (default: None, behavior depends on mode switch
 #					   the mode to start in (slow, or interactive [requires screen]) if no input parameter file is given
 #                      the path to the dammif executable (default: asssume dammif is in PATH)
 #					   the prefix for the dammif output (default: The name of the GNOM file)
 #                      the number of dammif instances to start (default: 1)
-OPTIONS=i:b:p:n:m:
-LONGOPTIONS=in:,bin:,prefix:,num:,mode:
+OPTIONS=i:b:p:n:m:h
+LONGOPTIONS=in:,bin:,prefix:,num:,mode:,help
 PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTIONS --name="$0" -- "$@")
 if [[ $? -ne 0 ]]; then
 	exit 2
@@ -24,7 +37,7 @@ eval set -- "$PARSED"
 
 DAMMIFPATH="dammif"
 NUMINSTANCES=1
-MODE="SLOW"
+MODE="slow"
 while true; do
 	case "$1" in
 		-n|--num)
@@ -47,6 +60,10 @@ while true; do
 			MODE="$2"
 			shift 2
 			;;
+		-h|--help)
+			print_usage
+			exit 0
+			;;
 		--)
 			shift
 			break
@@ -64,7 +81,7 @@ done
 if [[ $# -eq 1 ]]; then
     GNOMFILE=$1
 else
-	echo "$0: Expected a single argument representing the input GNOM file."
+	echo "$0: Missing required path to the input GNOM file"
 	exit 2
 fi
 if [[ ! -f "$GNOMFILE" ]]; then
@@ -78,12 +95,14 @@ if [[ -z ${PREFIX+x} ]]; then
 fi
 # infile, if provided, should also be real
 if [[ ! -z ${INFILE+x} ]] && [[ ! -f "$INFILE" ]]; then
-	echo "$0: Input parameter file does not exist or is not a file"
+	echo "$0: $INFILE does not exist or is not a file"
 	exit 2
 fi
+# Set case insensitive strcmp (for checking $MODE)
+shopt -s nocasematch
 # Mode must be one of [SLOW, INTERACTIVE] if INFILE is not specified
 if [[ -z ${INFILE+x} ]] && [[ "$MODE" != "slow" ]] && [[ "$MODE" != "interactive" ]]; then
-	echo "$0: in the absence of an input parameter file, MODE must be either slow or interactive"
+	echo "$0: mode must be either slow or interactive"
 	exit 2
 fi
 # Check for dammif
@@ -126,3 +145,5 @@ while [[ $LAUNCHED -lt $NUMINSTANCES ]]; do
 	let LAUNCHED=LAUNCHED+1
 	let i=i+1
 done
+# Unset case insensitive strcmp
+shopt -u nocasematch
